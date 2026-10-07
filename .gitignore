@@ -1,0 +1,35 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+
+# ---- PyInstaller ----
+*.spec
+
+# ---- 开发过程产物（不入库） ----
+# 反编译的 Panoply 源码 / jar / 参考截图（体积大且含第三方版权）
+data/panoply_src/
+data/panoply_jar/
+data/panoply_ref/
+# 开发调试截图（_ui_* 等中间渲染产物）
+data/_*.png
+data/test_*.png
+# 临时脚本
+scripts/_*.py
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+.DS_Store
+
+# ---- 日志 ----
+*.log
+
+# ---- 打包产物 ----
+release/
