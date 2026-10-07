@@ -7,7 +7,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem
 
-from ncviewer.ui.icons import panoply_icon
+from ncviewer.ui.icons import tree_icon
 
 _USER_ROLE = int(Qt.ItemDataRole.UserRole)
 
@@ -64,7 +64,7 @@ def build_tree(tree: QTreeWidget, ds, path: str, variables: list[dict],
 
     name = ds.attrs.get("title") or _stem(path)
     ds_item = QTreeWidgetItem(tree, [name, str(path), "数据集"])
-    ds_item.setIcon(0, panoply_icon("folder", 16))
+    ds_item.setIcon(0, tree_icon("dataset", 16))
     ds_item.setData(0, _USER_ROLE, {"kind": "dataset", "path": str(path)})
     ds_item.setToolTip(1, str(path))
 
@@ -72,7 +72,7 @@ def build_tree(tree: QTreeWidget, ds, path: str, variables: list[dict],
         var_name = var["name"]
         long_name = var.get("long_name") or ""
         vi = QTreeWidgetItem(ds_item, [var_name, str(long_name), _var_type_text(var, ds)])
-        vi.setIcon(0, panoply_icon("leaf", 16))
+        vi.setIcon(0, tree_icon("variable", 16))
         vi.setData(0, _USER_ROLE, {"kind": "variable", "dataset": str(path), "var_name": var_name})
         vi.setToolTip(0, var_name)
         if long_name:

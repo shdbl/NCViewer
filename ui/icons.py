@@ -174,3 +174,35 @@ def app_icon(size: int = 64) -> QIcon:
                            Qt.TransformationMode.SmoothTransformation)
         return QIcon(pm)
     return QIcon()
+
+
+def _icon_source_path() -> str:
+    """AI 生成的应用图标源图路径（兼容打包环境）。"""
+    import sys as _sys
+    res_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+    if getattr(_sys, "frozen", False) and hasattr(_sys, "_MEIPASS"):
+        res_dir = os.path.join(_sys._MEIPASS, "ncviewer", "ui", "resources")
+    return os.path.join(res_dir, "ncviewer_icon.png")
+
+
+def tree_icon(kind: str, size: int = 16) -> QIcon:
+    """数据树节点图标（从 AI 地球图标裁切，风格统一）。
+
+    kind:
+      - "dataset"：完整图标（圆角卡片 + 地球）
+      - "variable"：中心裁切地球主体（去掉卡片边缘背景，小图近似透明感）
+    """
+    png = _icon_source_path()
+    if not os.path.exists(png):
+        return QIcon()
+    pm = QPixmap(png)  # 1024x1024
+    src = min(pm.width(), pm.height())
+    if kind == "variable":
+        # 中心 55% 区域：框住地球主体，去掉四边卡片/背景
+        off = int(src * 0.225)
+        pm = pm.copy(off, off, int(src * 0.55), int(src * 0.55))
+    else:  # dataset：完整图标
+        pm = pm.copy(0, 0, src, src)
+    pm = pm.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio,
+                   Qt.TransformationMode.SmoothTransformation)
+    return QIcon(pm)
