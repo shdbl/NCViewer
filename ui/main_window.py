@@ -22,7 +22,7 @@ from ncviewer.core.dataset import describe_variables, open_dataset
 from ncviewer.ui.datatree import build_tree, item_payload
 from ncviewer.ui.plot_controls import _NoWheelCombo
 from ncviewer.ui.icons import (
-    chart_icon, layers_icon, open_icon, panel_right_icon,
+    app_icon, chart_icon, layers_icon, open_icon, panel_right_icon,
     trash_all_icon, trash_icon,
 )
 from ncviewer.ui.metadata_panel import MetadataPanel
@@ -46,6 +46,7 @@ class MainWindow(QMainWindow):
             apply_app_style(app)
 
         self.setWindowTitle("NCViewer")
+        self.setWindowIcon(app_icon(64))
         self.resize(1180, 720)
         geo = self.settings.value("窗口位置")
         if geo:

@@ -155,3 +155,22 @@ def panel_right_icon(size: int = 20) -> QIcon:
 def panel_left_icon(size: int = 20) -> QIcon:
     """显示信息（左侧面板切换）。"""
     return _svg_icon(_PANEL_LEFT, size, stroke="#4a5568")
+
+
+def app_icon(size: int = 64) -> QIcon:
+    """应用图标（AI 生成的高端地球气象图标，PNG/ICO）。
+
+    源码运行时从 ui/resources 加载；打包后从 _MEIPASS 解析。
+    """
+    import sys as _sys
+    res_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+    if getattr(_sys, "frozen", False) and hasattr(_sys, "_MEIPASS"):
+        res_dir = os.path.join(_sys._MEIPASS, "ncviewer", "ui", "resources")
+    png = os.path.join(res_dir, "ncviewer_icon.png")
+    if os.path.exists(png):
+        pm = QPixmap(png)
+        if size > 0:
+            pm = pm.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio,
+                           Qt.TransformationMode.SmoothTransformation)
+        return QIcon(pm)
+    return QIcon()

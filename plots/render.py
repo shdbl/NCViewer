@@ -4,6 +4,8 @@
 归一化/图上 min-max 标注/标签字号/网格线型/脚注左中右/经纬度范围/矢量场箭头。
 """
 from __future__ import annotations
+import os
+import sys
 import matplotlib
 matplotlib.rcParams["font.sans-serif"] = ["SimHei", "Microsoft YaHei", "Noto Sans CJK SC"]
 matplotlib.rcParams["axes.unicode_minus"] = False
@@ -11,6 +13,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, LogNorm
 import cartopy.crs as ccrs
+
+# ---- 离线海岸线数据：优先使用随包内置的 Natural Earth shapefiles ----
+# 源码运行时定位到 ncviewer/data（cartopy 会在 data_dir 下自动拼 shapefiles/natural_earth）；
+# PyInstaller 打包后定位到 _MEIPASS/ncviewer/data。这样用户无需联网下载海岸线
+# （cartopy 0.26 包内已不含矢量海岸线）。
+_NE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "data")
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    _NE_DIR = os.path.join(sys._MEIPASS, "ncviewer", "data")
+if os.path.isdir(os.path.join(_NE_DIR, "shapefiles", "natural_earth")):
+    import cartopy as _cartopy
+    _cartopy.config["data_dir"] = _NE_DIR
 
 from .spec import PlotSpec
 

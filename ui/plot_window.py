@@ -25,7 +25,7 @@ from matplotlib.figure import Figure
 from ncviewer.core.dataset import get_time_info
 from ncviewer.plots.render import _is_hovmoller, render
 from ncviewer.plots.spec import spec_from_defaults
-from ncviewer.ui.icons import panoply_icon, play_icon, step_left_icon, step_right_icon
+from ncviewer.ui.icons import app_icon, panoply_icon, play_icon, step_left_icon, step_right_icon
 from ncviewer.ui.metadata_panel import cdl_html
 from ncviewer.ui.plot_controls import PlotControlsPanel, _NoWheelCombo
 
@@ -39,8 +39,13 @@ def _time_strings(ds, var_name: str) -> list[str]:
         return []
     coord = ds[time_name]
     out = []
+    import pandas as pd
     for v in coord.values:
-        out.append(v.strftime("%Y-%m-%d") if hasattr(v, "strftime") else str(v))
+        if hasattr(v, "strftime"):
+            out.append(v.strftime("%Y-%m-%d"))
+        else:
+            # numpy.datetime64 无 strftime：转 pandas Timestamp 再格式化
+            out.append(pd.Timestamp(v).strftime("%Y-%m-%d"))
     return out
 
 
@@ -121,6 +126,7 @@ class PlotWindow(QMainWindow):
         vname = var_name.replace("_", " ")[:28]
         dname = _ds_name(ds)[:42]
         self.setWindowTitle(f"{vname} in {dname}")
+        self.setWindowIcon(app_icon(48))
         self.resize(980, 700)
 
         self._build_tabs()
@@ -809,6 +815,7 @@ class CombinePlotWindow(QMainWindow):
 
         names = " + ".join(v.replace("_", " ") for _, v in var_specs)[:60]
         self.setWindowTitle(f"合并绘图：{names}")
+        self.setWindowIcon(app_icon(48))
         self.resize(1000, 680)
 
         central = QWidget()
