@@ -4,14 +4,35 @@ from pathlib import Path
 import xarray as xr
 
 
+# 支持的格式后缀 → xarray engine
+_SUPPORTED_SUFFIXES = {".nc", ".nc4", ".grb", ".grib", ".grb2", ".grib2"}
+_NETCDF_SUFFIXES = {".nc", ".nc4"}
+_GRIB_SUFFIXES = {".grb", ".grib", ".grb2", ".grib2"}
+_FORMAT_LABEL = "NetCDF/GRIB"
+
+
 def open_dataset(path: str | Path) -> xr.Dataset:
-    """懒加载打开本地 NetCDF 文件，并在 Dataset.attrs 中保留原始路径。"""
+    """懒加载打开本地 NetCDF / GRIB 文件，并在 Dataset.attrs 中保留原始路径。
+
+    - ``.nc/.nc4`` → xarray 默认 netcdf4 后端；
+    - ``.grb/.grib/.grb2/.grib2`` → cfgrib 后端（需安装 cfgrib+eccodes）。
+    """
     file_path = Path(path).expanduser().resolve()
     if not file_path.exists():
-        raise FileNotFoundError(f"找不到 NetCDF 文件：{file_path}")
-    if file_path.suffix.lower() not in {".nc", ".nc4"}:
-        raise ValueError(f"仅支持 .nc/.nc4 文件：{file_path}")
-    ds = xr.open_dataset(file_path, decode_times=True)
+        raise FileNotFoundError(f"找不到数据文件：{file_path}")
+    suffix = file_path.suffix.lower()
+    if suffix not in _SUPPORTED_SUFFIXES:
+        raise ValueError(f"仅支持 {_FORMAT_LABEL} 文件（{'/'.join(sorted(_SUPPORTED_SUFFIXES))}）：{file_path}")
+    try:
+        if suffix in _GRIB_SUFFIXES:
+            ds = xr.open_dataset(file_path, engine="cfgrib", decode_times=True)
+        else:
+            ds = xr.open_dataset(file_path, decode_times=True)
+    except ValueError as exc:
+        # cfgrib 缺失等后端错误给出可读提示
+        if "unrecognized engine" in str(exc) or "cfgrib" in str(exc):
+            raise ValueError("打开 GRIB 文件需要安装 cfgrib + eccodes 依赖") from exc
+        raise
     ds.attrs.setdefault("_ncviewer_source_path", str(file_path))
     return ds
 
@@ -38,25 +59,52 @@ def describe_global_attrs(ds: xr.Dataset) -> dict:
 
 
 def get_time_info(ds: xr.Dataset, var: str) -> dict:
-    """获取变量时间维名称、首末值、步长、日历和时间单位，兼容 cftime 日历。"""
+    """获取变量时间维名称、首末值、步长、日历和时间单位，兼容 cftime 日历。
+
+    时间维识别优先级（含 GRIB 场景）：
+    1. 变量维度中的 ``time``/``times``；
+    2. 变量维度中的 ``valid_time``（GRIB 实际预报时刻，datetime64，优先于 step）；
+    3. 变量维度中的 ``step``（GRIB 预报步数，timedelta64）；
+    4. 数据集坐标中的 ``time``/``valid_time``（单时次 GRIB 标量坐标）。
+    """
     if var not in ds:
         raise KeyError(f"变量不存在：{var}")
     da = ds[var]
     time_name = next((d for d in da.dims if d.lower() in {"time", "times"}), None)
     if time_name is None:
-        time_name = next((d for d in da.dims if "time" in d.lower()), None)
+        time_name = next((d for d in da.dims if "time" in d.lower() and d != "valid_time"), None)
+    if time_name is None:
+        # GRIB 实际预报时刻（datetime64，人类可读）优先于 step（timedelta64 步数）
+        time_name = next((d for d in da.dims if d == "valid_time"), None)
+    if time_name is None:
+        time_name = next((d for d in da.dims if d in {"step", "valid_time"}), None)
+    if time_name is None:
+        # 单时次 GRIB：time 是标量坐标不在变量维度里
+        for cand in ("time", "valid_time"):
+            if cand in ds.coords and ds[cand].ndim == 0:
+                time_name = cand
+                break
     if time_name is None:
         raise ValueError(f"变量 {var} 不包含可识别的时间维")
     coord = ds[time_name]
     values = coord.values
     if len(values) == 0:
         raise ValueError(f"时间坐标 {time_name} 为空")
+    # GRIB step 是 timedelta64（步数），若有同 shape 的 valid_time（datetime64）辅助
+    # 坐标则改用它做显示值（人类可读的实际预报时刻）
+    display_dim = time_name
+    if time_name == "step" and "valid_time" in ds.coords:
+        vt = ds["valid_time"]
+        if tuple(vt.dims) == (time_name,) or (vt.ndim == 0 and len(values) == 1):
+            coord = vt
+            values = vt.values
+            display_dim = "valid_time"
     calendar = coord.attrs.get("calendar") or coord.encoding.get("calendar")
     if calendar is None and hasattr(values[0], "calendar"):
         calendar = values[0].calendar
     calendar = str(calendar or "standard")
     step = values[1] - values[0] if len(values) > 1 else None
-    return {"dim": time_name, "start": values[0], "end": values[-1], "step": step,
+    return {"dim": display_dim, "start": values[0], "end": values[-1], "step": step,
             "calendar": calendar, "units": coord.attrs.get("units") or coord.encoding.get("units")}
 
 

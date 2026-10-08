@@ -182,3 +182,19 @@
 - 验证：NSIDC u → map + LambertAzimuthalEqualArea CRS + NorthPolarStereo 自动；渲染北极极射投影同心纬度环 40-80N + 海岸线 + 色标 -0.08~0.08 正确
 - tests\test_projected_grid.py 新增（解析/CRS自定义球体/x-y网格/自动极地/常规不受影响 6 项），11 测试全绿
 [10:56] S7.8 打包发布：PyInstaller onedir 重建（合并绘图改造后），NCViewer.exe 13.5MB + NCViewer-windows-x64.zip 134.1MB，启动冒烟测试通过（run 8s 无退出）。待 push GitHub + 建 Release v1.0.0 上传 zip。
+[11:03] S7.9 发布 GitHub：代码 push main (c01d5b9) + tag v1.0.0 + Release 'NCViewer v1.0.0' 创建成功，zip (140.6MB) 已上传：https://github.com/shdbl/NCViewer/releases/tag/v1.0.0
+
+[现在时间] S8.1 GRIB 格式支持（v1.0 增量，不改版本号）
+- 需求：用户拍板「不改版本，直接加 GRIB 支持，直接替换现有版本」
+- 环境：pip 安装 cfgrib 0.9.15.1 + eccodes 2.49.0（自带 DLL，不污染 conda 包树）
+  * 教训：conda 装 eccodes 会连带升级 openssl/icu/zstd 等导致 PySide6 Qt DLL 崩溃
+    （WinError 127 找不到指定的程序），conda 回滚 rev 0 恢复后改走 pip 安装
+  * 回滚连带卸载了 numpy/pandas/xarray（conda 与 pypi 混装的坑），pip --ignore-installed 重装恢复
+- core\dataset.py：后缀白名单扩为 {.nc,.nc4,.grb,.grib,.grb2,.grib2}；GRIB 用 engine=cfgrib；
+  get_time_info 时间维识别扩展（time/valid_time/step，GRIB step 有 valid_time 辅助坐标时用其显示）
+- ui\main_window.py：文件对话框过滤器 + 拖拽白名单加 GRIB 后缀
+- ui\datatree.py：_var_type_text 时间类维含 step/valid_time；_stem 去 GRIB 后缀
+- ui\plot_window.py：_time_strings 复用 get_time_info；新增 _time_dim_name(da) 统一时间维识别
+  （time/valid_time/step），替换 3 处切片逻辑；_detect_extra_dims 排除时间维（修复 step 重复进切片器）
+- 测试：tests	est_grib.py 新增 13 项；12 测试全绿
+- 测试数据：cfgrib 官方样例（regular_ll_sfc.grib 单变量 2D / multi_param_on_multi_dims.grib 多变量 4D 预报）

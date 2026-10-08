@@ -26,7 +26,8 @@ def _var_type_text(var: dict, ds=None) -> str:
     low = [d.lower() for d in dims]
     has_lat = any(k in low for k in ("lat", "latitude"))
     has_lon = any(k in low for k in ("lon", "longitude"))
-    has_time = any("time" in d for d in low)
+    # 时间类维度：time/valid_time（分析+预报），step 算 GRIB 预报的时间轴
+    has_time = any(("time" in d) or (d in ("step", "valid_time")) for d in low)
     # 2D 辅助经纬度坐标（curvilinear grid）
     if ds is not None and ndim >= 2:
         from ncviewer.core.dataset import find_aux_lonlat
@@ -85,8 +86,11 @@ def _stem(path: str) -> str:
     """从文件路径取不带后缀的文件名。"""
     import os
     base = os.path.basename(str(path))
-    if base.lower().endswith((".nc", ".nc4")):
-        base = base[:-3] if base.lower().endswith(".nc") else base[:-4]
+    low = base.lower()
+    for suf in (".nc4", ".nc", ".grib2", ".grb2", ".grib", ".grb"):
+        if low.endswith(suf):
+            base = base[: -len(suf)]
+            break
     return base
 
 

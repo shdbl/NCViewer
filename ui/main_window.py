@@ -228,8 +228,8 @@ class MainWindow(QMainWindow):
     # ---------- 动作 ----------
     def _on_open(self):
         path, _ = QFileDialog.getOpenFileName(
-            self, "打开 NetCDF 数据集", "",
-            "NetCDF 文件 (*.nc *.nc4);;所有文件 (*)")
+            self, "打开数据文件", "",
+            "NetCDF/GRIB 文件 (*.nc *.nc4 *.grb *.grib *.grb2 *.grib2);;所有文件 (*)")
         if path:
             self.open_file(path)
 
@@ -435,7 +435,7 @@ class MainWindow(QMainWindow):
             event.ignore()
 
     def dropEvent(self, event):
-        """把拖入的 .nc/.nc4 文件逐个打开（多文件支持）。"""
+        """把拖入的 .nc/.nc4/.grb/.grib 文件逐个打开（多文件支持）。"""
         urls = event.mimeData().urls()
         opened = 0
         for url in urls:
@@ -443,7 +443,7 @@ class MainWindow(QMainWindow):
             if not path:
                 continue
             low = path.lower()
-            if low.endswith((".nc", ".nc4", ".cdf")):
+            if low.endswith((".nc", ".nc4", ".cdf", ".grb", ".grib", ".grb2", ".grib2")):
                 try:
                     self.open_file(path)
                     opened += 1

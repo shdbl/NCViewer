@@ -31,22 +31,53 @@ from ncviewer.ui.plot_controls import PlotControlsPanel, _NoWheelCombo
 
 
 def _time_strings(ds, var_name: str) -> list[str]:
-    """取变量时间坐标的全部格式化字符串（兼容 cftime）。"""
+    """取变量时间坐标的全部格式化字符串（兼容 cftime / GRIB step-valid_time）。"""
     da = ds[var_name]
-    time_name = next((d for d in da.dims if d.lower() in {"time", "times"}),
-                     next((d for d in da.dims if "time" in d.lower()), None))
-    if time_name is None:
-        return []
-    coord = ds[time_name]
+    # 复用 core.get_time_info 的时间维识别（含 time/valid_time/step）
+    try:
+        from ncviewer.core.dataset import get_time_info
+        info = get_time_info(ds, var_name)
+        time_name = info["dim"]
+        if time_name == "valid_time" and "valid_time" in ds.coords:
+            coord = ds["valid_time"]
+        else:
+            coord = ds[time_name]
+    except Exception:
+        # 无时间维：退回旧的按维名启发式（兼容个别异常坐标）
+        time_name = next((d for d in da.dims if d.lower() in {"time", "times"}),
+                         next((d for d in da.dims if "time" in d.lower()), None))
+        if time_name is None:
+            return []
+        coord = ds[time_name]
     out = []
     import pandas as pd
     for v in coord.values:
         if hasattr(v, "strftime"):
             out.append(v.strftime("%Y-%m-%d"))
+        elif isinstance(v, float):
+            out.append(f"{v:g}")
         else:
-            # numpy.datetime64 无 strftime：转 pandas Timestamp 再格式化
-            out.append(pd.Timestamp(v).strftime("%Y-%m-%d"))
+            # numpy.datetime64 / timedelta64 无 strftime：转 pandas 再格式化
+            out.append(pd.Timestamp(v).strftime("%Y-%m-%d") if "datetime" in str(type(v)) else str(v))
     return out
+
+
+def _time_dim_name(da) -> str | None:
+    """找数据数组的时间维名（兼容 time/valid_time/GRIB step）。
+
+    与 core.dataset.get_time_info 的识别一致：优先 time，其次含 time 的
+    维度名，再 GRIB 的 step（预报步数，配合 valid_time 显示）。
+    """
+    for d in da.dims:
+        if d.lower() in {"time", "times"}:
+            return d
+    for d in da.dims:
+        if "time" in d.lower() and d != "valid_time":
+            return d
+    for d in da.dims:
+        if d in {"valid_time", "step"}:
+            return d
+    return None
 
 
 def _fmt_coord(v) -> str:
@@ -209,12 +240,13 @@ class PlotWindow(QMainWindow):
         对齐 Panoply getFreeDimensions：每个非绘图维一个切片器。
         """
         da = ds[var_name]
-        reserved = {"time", "times"}
         latlon = {"lat", "latitude", "y", "lon", "longitude", "x"}
         result = []
         for d in da.dims:
             low = d.lower()
-            if low in reserved or low in latlon or "time" in low:
+            if d == _time_dim_name(da):  # 时间维（time/valid_time/GRIB step）
+                continue
+            if low in latlon or "time" in low:
                 continue
             values = ds[d].values if d in ds.coords else list(range(da.sizes[d]))
             result.append((d, list(values)))
@@ -453,7 +485,7 @@ class PlotWindow(QMainWindow):
             da = self.dataset[self.var_name]
             # 与 refresh_plot 相同的切片逻辑：Hovmöller/一维时序不切片
             if not _is_hovmoller(da) and da.ndim > 1:
-                time_name = next((d for d in da.dims if "time" in d.lower()), None)
+                time_name = _time_dim_name(da)
                 if time_name is not None and self.time_strings:
                     idx = max(0, min(self._time_index, len(self.time_strings) - 1))
                     da = da.isel({time_name: idx})
@@ -660,7 +692,7 @@ class PlotWindow(QMainWindow):
         # Hovmöller 保留完整时间轴；其它带时间维且非一维时序的数据切到当前时次
         # （1D 时间序列变量直接画完整折线，不切片，避免降成 0 维标量）
         if not _is_hovmoller(da) and da.ndim > 1:
-            time_name = next((d for d in da.dims if "time" in d.lower()), None)
+            time_name = _time_dim_name(da)
             if time_name is not None and self.time_strings:
                 idx = max(0, min(self._time_index, len(self.time_strings) - 1))
                 da = da.isel({time_name: idx})
@@ -908,7 +940,7 @@ class CombinePlotWindow(QMainWindow):
 
     def _slice(self, ds, var_name):
         da = ds[var_name]
-        time_name = next((d for d in da.dims if "time" in d.lower()), None)
+        time_name = _time_dim_name(da)
         if time_name is not None and self.time_strings:
             idx = max(0, min(self._time_index, len(self.time_strings) - 1))
             da = da.isel({time_name: idx})

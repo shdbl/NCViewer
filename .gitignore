@@ -33,3 +33,7 @@ Thumbs.db
 
 # ---- 打包产物 ----
 release/
+
+# ---- GRIB cfgrib 索引缓存 ----
+*.grib.*.idx
+*.grb.*.idx
