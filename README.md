@@ -10,8 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/shdbl/NCViewer/releases/latest"><img src="https://img.shields.io/badge/%E7%AB%8B%E5%8D%B3%E4%B8%8B%E8%BD%BD%20NCViewer-%E5%85%8D%E5%AE%89%E8%A3%85%E7%89%88-316dc3?style=for-the-badge&logo=github&logoColor=white" alt="立即下载 NCViewer 免安装版"></a>
-  <a href="https://github.com/shdbl/NCViewer/releases"><img src="https://img.shields.io/github/downloads/shdbl/NCViewer/total?style=for-the-badge&label=Downloads&color=3b9eff" alt="Downloads"></a>
+  <a href="https://github.com/shdbl/NCViewer/releases/latest"><img src="docs/download_badge.svg" alt="立即下载 NCViewer 免安装版"></a>
 </p>
 
 <p align="center">

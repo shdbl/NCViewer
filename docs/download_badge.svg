@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="252" height="28" role="img" aria-label="立即下载 NCViewer 免安装版">
+  <title>立即下载 NCViewer 免安装版</title>
+  <g shape-rendering="crispEdges">
+    <rect x="0" y="0" width="92" height="28" fill="#316dc3"/>
+    <rect x="92" y="0" width="160" height="28" fill="#3b9eff"/>
+  </g>
+  <g fill="#ffffff" font-family="'Segoe UI', 'Microsoft YaHei', 'PingFang SC', sans-serif" font-size="13" font-weight="600" letter-spacing="0.5">
+    <text x="46" y="18.5" text-anchor="middle">立即下载</text>
+    <text x="172" y="18.5" text-anchor="middle">NCViewer 免安装版</text>
+  </g>
+</svg>
