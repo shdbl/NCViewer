@@ -61,7 +61,7 @@ if var_item:
 # --- §9-3 时间切片（数字输入 + 滑块联动） ---
 ds = open_dataset(str(nc))
 from ncviewer.ui.plot_window import PlotWindow
-pw = PlotWindow(ds, "siconc")
+pw = PlotWindow(ds, "sic")
 results.append(("§9-3 时间切片",
                 check("时间滑块存在", pw.slider is not None,
                       f"范围0-{pw.slider.maximum() if pw.slider else '?'}")))

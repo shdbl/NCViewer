@@ -34,9 +34,9 @@ plt.close(fig)
 
 data_dir = Path(__file__).resolve().parents[1] / "data"
 ds = open_dataset(data_dir / "demo_siconc.nc")
-map_data = slice_var(ds, "siconc", {"time": 0})
+map_data = slice_var(ds, "sic", {"time": 0})
 fig = plt.figure()
-render(map_data, PlotSpec(var_name="siconc"), fig)
+render(map_data, PlotSpec(var_name="sic"), fig)
 assert fig.axes, "演示数据地图分支不应受 Hovmöller 自动识别影响"
 plt.close(fig)
 

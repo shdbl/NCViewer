@@ -20,7 +20,7 @@ def main():
     path = Path(__file__).resolve().parents[1] / "data" / "demo_siconc.nc"
     ds = open_dataset(str(path))
 
-    window = PlotWindow(ds, "siconc")
+    window = PlotWindow(ds, "sic")
     assert hasattr(window, "controls_panel"), "controls_panel 属性不存在"
     assert window.controls_panel is not None, "controls_panel 未创建"
     docks = window.findChildren(QDockWidget)

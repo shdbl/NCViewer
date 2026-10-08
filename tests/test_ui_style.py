@@ -24,7 +24,7 @@ def main():
     assert window.metadata is not None
     assert window.empty_state is not None
     window.open_file(r"D:\Agent\deepseek\ncviewer\data\demo_siconc.nc")
-    plot = window.new_plot(window.datasets[0], "siconc")
+    plot = window.new_plot(window.datasets[0], "sic")
     assert plot.slider is not None
     window.close()
     plot.close()

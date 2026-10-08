@@ -26,7 +26,7 @@ def main():
     variable = root.child(0)
     payload = item_payload(variable)
     assert payload["kind"] == "variable"
-    assert payload["var_name"] == "siconc"
+    assert payload["var_name"] == "sic"
     window.tree.setCurrentItem(variable)
     assert window.metadata.stack.count() > 0
     plot = window.new_plot(payload["dataset"], payload["var_name"])
