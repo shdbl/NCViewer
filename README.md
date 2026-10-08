@@ -16,10 +16,11 @@
   <a href="#"><img src="https://img.shields.io/badge/UI-%E4%B8%AD%E6%96%87-0b6e8e?style=flat-square" alt="UI"></a>
   <a href="#"><img src="https://img.shields.io/badge/%E5%85%8D%E5%AE%89%E8%A3%85-%E8%A7%A3%E5%8E%8B%E5%8D%B3%E7%94%A8-3b9eff?style=flat-square" alt="免安装"></a>
   <a href="#"><img src="https://img.shields.io/badge/%E7%A6%BB%E7%BA%BF%E6%B5%B7%E5%B2%B8%E7%BA%BF-offline-8fa0b3?style=flat-square" alt="离线海岸线"></a>
+  <a href="https://github.com/shdbl/NCViewer/releases/latest"><img src="https://img.shields.io/github/downloads/shdbl/NCViewer/total?style=flat-square&logo=github&color=316dc3" alt="Downloads"></a>
 </p>
 
 <p align="center">
-  一个中文界面的 NetCDF 数据可视化桌面工具。打开 `.nc` 文件 → 看元数据 → 画地图 → 导出论文级 PNG。
+  一个中文界面的 NetCDF 数据可视化桌面工具。打开 <code>.nc</code> 文件 → 看元数据 → 画地图 → 导出论文级 PNG。
 </p>
 
 ---
