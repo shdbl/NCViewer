@@ -916,16 +916,22 @@ class CombinePlotWindow(QMainWindow):
         self.canvas.draw()
 
     def _render_vector(self, pair, render_vector):
-        """把 u/v 分量画成矢量箭头图（单图，覆盖两个变量）。"""
+        """把 u/v 分量画成矢量箭头图（单图，覆盖两个变量）。
+
+        关键：u 和 v 可能来自**不同文件**（如 uwnd.mon.mean.nc / vwnd.mon.mean.nc），
+        必须按变量名从各自的 var_specs 条目取对应 dataset，不能用第一个文件的 ds。
+        """
         from ncviewer.plots.spec import spec_from_defaults
         from ncviewer.plots.render import _projection
         un, vn = pair
-        ds = self.var_specs[0][0]
+        # 按变量名找到各自的数据集（u/v 可能在不同文件里）
+        ds_u = next((ds for ds, v in self.var_specs if v == un), self.var_specs[0][0])
+        ds_v = next((ds for ds, v in self.var_specs if v == vn), ds_u)
         # 以 u 的 spec 为主，切到当前时次
         spec = spec_from_defaults(un)
         spec.plot_type = "vector"
-        u = self._slice(ds, un)
-        v = self._slice(ds, vn)
+        u = self._slice(ds_u, un)
+        v = self._slice(ds_v, vn)
         # 极区数据自动用极地投影（与单变量 PlotWindow 一致）
         proj = _auto_polar_projection(u)
         if proj:

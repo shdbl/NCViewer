@@ -477,9 +477,17 @@ def _render_map_projected(data, spec: PlotSpec, fig, ax, params):
     elif ax.projection is None:
         ax.set_projection(_projection(spec))
     src_crs = _projected_crs(params)
+    # 色标范围：应用用户设置的 level_min/level_max（与常规 render_map 一致）
+    levels = _levels(values, spec)
+    norm = _norm(values, levels, spec)
+    pc_kw = {}
+    if norm is not None:
+        pc_kw["norm"] = norm
+    else:
+        pc_kw["vmin"], pc_kw["vmax"] = float(levels[0]), float(levels[-1])
     mesh = ax.pcolormesh(x2d, y2d, values, cmap=spec.colormap,
                          shading="auto", transform=src_crs,
-                         alpha=getattr(spec, "alpha", 1.0))
+                         alpha=getattr(spec, "alpha", 1.0), **pc_kw)
     ax.coastlines(linewidth=0.5)
     if spec.grid_on:
         # 经纬网格线始终用 PlateCarree（cartopy gridliner 只支持它标注刻度）
@@ -506,9 +514,17 @@ def _render_map_aux(data, spec: PlotSpec, fig, ax, lon2d, lat2d):
         ax = fig.add_subplot(1, 1, 1, projection=_projection(spec))
     elif ax.projection is None:
         ax.set_projection(_projection(spec))
+    # 色标范围：应用用户设置的 level_min/level_max（与常规 render_map 一致）
+    levels = _levels(values, spec)
+    norm = _norm(values, levels, spec)
+    pc_kw = {}
+    if norm is not None:
+        pc_kw["norm"] = norm
+    else:
+        pc_kw["vmin"], pc_kw["vmax"] = float(levels[0]), float(levels[-1])
     mesh = ax.pcolormesh(lon, lat, values, cmap=spec.colormap,
                          shading="auto", transform=ccrs.PlateCarree(),
-                         alpha=getattr(spec, "alpha", 1.0))
+                         alpha=getattr(spec, "alpha", 1.0), **pc_kw)
     ax.coastlines(linewidth=0.5)
     _set_extent(ax, spec)
     if spec.grid_on:
@@ -550,7 +566,12 @@ def render_vector(data, spec: PlotSpec, fig, ax=None):
         v2 = _to_2d(v, (lat_dim, lon_dim))
         lat = u2[lat_dim].values; lon = u2[lon_dim].values
     U = np.asarray(u2.values); V = np.asarray(v2.values)
-    step = max(1, int(getattr(spec, "vector_density", 1)))
+    # 自动抽稀：大数据网格全画箭头会卡（cartopy 逐箭头坐标变换）。
+    # 目标 ≈ 每 2000 个箭头；用户手动 density 在此基础上按比例（越大越稀）。
+    density = max(1, int(getattr(spec, "vector_density", 1)))
+    ny, nx = U.shape
+    base_step = max(1, int(np.sqrt(ny * nx / 2000.0)))
+    step = max(density, base_step)
     q = ax.quiver(lon[::step], lat[::step], U[::step, ::step], V[::step, ::step],
                   scale=getattr(spec, "vector_scale", 1.0) * 100,
                   color=getattr(spec, "vector_color", "black"),

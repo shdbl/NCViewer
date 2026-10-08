@@ -75,4 +75,47 @@ ds_global = xr.Dataset(
 assert _auto_polar_projection(ds_global["g"]) is None, "全球数据不应自动切极射"
 print("PASS 全球数据不自动切极射")
 
+# ---- 5. 合并绘图：u/v 跨文件 + 自动抽稀（回归：曾 KeyError / 10512 箭头卡死） ----
+from PySide6.QtWidgets import QApplication
+from ncviewer.ui.plot_window import CombinePlotWindow
+
+_app = QApplication.instance() or QApplication([])
+time = xr.date_range("2024-01-01", periods=3, freq="MS")
+lat = np.linspace(-90, 90, 73); lon = np.linspace(0, 357.5, 144)
+# 构造有结构的风场（纬向风 + 经向扰动），level 维模拟多层数据（跨文件 u/v）
+u3 = np.zeros((3, 2, 73, 144), dtype=float)
+v3 = np.zeros((3, 2, 73, 144), dtype=float)
+u3[0, 0] = 10 * np.cos(np.deg2rad(lat))[:, None]  # 纬向风（西风带）
+v3[0, 0] = 5 * np.sin(np.deg2rad(lon))[None, :] * np.cos(np.deg2rad(lat))[:, None]
+ds_u = xr.Dataset({"u": (("time", "level", "lat", "lon"), u3)},
+                  coords={"time": time, "level": [850, 500], "lat": lat, "lon": lon})
+ds_v = xr.Dataset({"v": (("time", "level", "lat", "lon"), v3)},
+                  coords={"time": time, "level": [850, 500], "lat": lat, "lon": lon})
+# 跨文件：u 在 ds_u、v 在 ds_v（曾只取第一个文件的 ds 导致 KeyError）
+cp = CombinePlotWindow([(ds_u, "u"), (ds_v, "v")])
+assert "合并绘图" in cp.windowTitle()
+# 自动抽稀：73×144 → 步长应 ≥2（否则 10512 箭头全画会卡）
+arrow_n = 0
+for ax in cp.figure.axes:
+    for coll in ax.collections:
+        if type(coll).__name__ == "Quiver":
+            arrow_n = int(coll.U.size)
+if arrow_n == 0:
+    # 直接测 render_vector 的抽稀逻辑（带投影轴）
+    spec_u = cp.specs[0]
+    spec_u.plot_type = "vector"
+    ds_vec = xr.Dataset({"u": ds_u["u"].isel(level=0, time=0), "v": ds_v["v"].isel(level=0, time=0)})
+    import matplotlib.pyplot as plt
+    import cartopy.crs as ccrs
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
+    render_vector(ds_vec, spec_u, fig, ax=ax)
+    for coll in ax.collections:
+        if type(coll).__name__ == "Quiver":
+            arrow_n = int(coll.U.size)
+    plt.close(fig)
+assert arrow_n > 0 and arrow_n < 10512, f"应自动抽稀（<10512），实际 {arrow_n}"
+cp.close()
+print(f"PASS 跨文件 u/v 合并绘图 + 自动抽稀（箭头 {arrow_n} < 10512）")
+
 print("\nALL PASS")
