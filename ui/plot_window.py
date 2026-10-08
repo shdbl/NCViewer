@@ -16,7 +16,7 @@ from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QComboBox, QDockWidget, QHBoxLayout, QLabel, QMainWindow, QMenu,
-    QScrollArea, QSlider, QSpinBox, QTabWidget, QTableWidget,
+    QScrollArea, QSizePolicy, QSlider, QSpinBox, QTabWidget, QTableWidget,
     QTableWidgetItem, QTextEdit, QToolBar, QToolButton, QVBoxLayout, QWidget,
 )
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg, NavigationToolbar2QT
@@ -809,6 +809,10 @@ class CombinePlotWindow(QMainWindow):
         super().__init__(parent)
         self.var_specs = var_specs
         self.specs = [spec_from_defaults(v) for _, v in var_specs]
+        # 控制面板接口：主 spec = 第一个变量的 spec（矢量参数存在这里）
+        self.spec = self.specs[0]
+        self.dataset = var_specs[0][0]
+        self.var_name = var_specs[0][1]
         self.time_strings = _time_strings(var_specs[0][0], var_specs[0][1])
         self._time_index = 0
         self._reentrant = False
@@ -816,7 +820,8 @@ class CombinePlotWindow(QMainWindow):
         names = " + ".join(v.replace("_", " ") for _, v in var_specs)[:60]
         self.setWindowTitle(f"合并绘图：{names}")
         self.setWindowIcon(app_icon(48))
-        self.resize(1000, 680)
+        # 宽扁默认尺寸：画布接近 2:1，匹配 PlateCarree 全图纵横比，减少上下留白
+        self.resize(1400, 640)
 
         central = QWidget()
         outer = QVBoxLayout(central)
@@ -852,13 +857,18 @@ class CombinePlotWindow(QMainWindow):
         blay.addWidget(self.slider, 1)
         outer.addWidget(bar)
 
-        self.figure = Figure(figsize=(8, 5.5), dpi=100)
+        self.figure = Figure(figsize=(10, 5), dpi=100)  # 接近 2:1，匹配 PlateCarree 全图纵横比
         self.canvas = FigureCanvasQTAgg(self.figure)
-        outer.addWidget(self.canvas)
+        self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        outer.addWidget(self.canvas, 1)
         self.toolbar = NavigationToolbar2QT(self.canvas, self)
         outer.addWidget(self.toolbar)
         self.setCentralWidget(central)
-        self.statusBar().showMessage("合并绘图")
+        self.status = self.statusBar()
+        self.status.showMessage("合并绘图")
+
+        # 右侧绘图设置面板（对齐单变量窗口：QDockWidget + PlotControlsPanel）
+        self._build_dock()
 
         self.time_spin.valueChanged.connect(self._on_spin_time)
         self.time_combo.currentIndexChanged.connect(self._on_combo_time)
@@ -867,6 +877,34 @@ class CombinePlotWindow(QMainWindow):
         self.btn_next.clicked.connect(lambda: self._step_time(1))
 
         self.refresh_plot()
+
+    def _build_dock(self):
+        """右侧「绘图设置」停靠面板（与单变量 PlotWindow 同款）。"""
+        from ncviewer.ui.plot_controls import PlotControlsPanel
+        self.controls_panel = PlotControlsPanel(self)
+        dock = QDockWidget("绘图设置", self)
+        dock.setObjectName("plotControlsDock")
+        dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+        dock.setWidget(self.controls_panel)
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock)
+        self.controls_dock = dock
+        # 合并绘图按矢量/多子图设置：矢量对 → 矢量组可用
+        names = [v for _, v in self.var_specs]
+        from ncviewer.plots.render import _vector_pair
+        if _vector_pair(names) is not None and len(self.var_specs) == 2:
+            self.spec.plot_type = "vector"
+            self.controls_panel.set_plot_type("vector")
+        else:
+            self.controls_panel.set_plot_type(self.spec.plot_type)
+        self.controls_panel._sync_from_spec()
+
+    def fit_scale(self):
+        """矢量图不适用数据范围适配（控制面板按钮调用）。"""
+        self.status.showMessage("矢量场无需适配数据范围")
+
+    def on_variable_combo_changed(self, idx):
+        """合并窗口内不切换变量（多变量固定）。"""
+        pass
 
     def _slice(self, ds, var_name):
         da = ds[var_name]
@@ -920,16 +958,18 @@ class CombinePlotWindow(QMainWindow):
 
         关键：u 和 v 可能来自**不同文件**（如 uwnd.mon.mean.nc / vwnd.mon.mean.nc），
         必须按变量名从各自的 var_specs 条目取对应 dataset，不能用第一个文件的 ds。
+        使用控制面板绑定的 self.spec（保留用户调整的样式/间隔/粗细/参考值等）。
         """
-        from ncviewer.plots.spec import spec_from_defaults
         from ncviewer.plots.render import _projection
         un, vn = pair
         # 按变量名找到各自的数据集（u/v 可能在不同文件里）
         ds_u = next((ds for ds, v in self.var_specs if v == un), self.var_specs[0][0])
         ds_v = next((ds for ds, v in self.var_specs if v == vn), ds_u)
-        # 以 u 的 spec 为主，切到当前时次
-        spec = spec_from_defaults(un)
-        spec.plot_type = "vector"
+        # 用控制面板绑定的主 spec（矢量参数用户可调），切到当前时次
+        spec = self.spec
+        if spec.plot_type != "vector":
+            spec.plot_type = "vector"
+            self.controls_panel.set_plot_type("vector")
         u = self._slice(ds_u, un)
         v = self._slice(ds_v, vn)
         # 极区数据自动用极地投影（与单变量 PlotWindow 一致）
@@ -941,14 +981,19 @@ class CombinePlotWindow(QMainWindow):
         try:
             ax = self.figure.add_subplot(111, projection=_projection(spec))
             render_vector(ds_vec, spec, self.figure, ax=ax)
-            self.statusBar().showMessage(f"矢量场：{un} + {vn}")
+            # 紧凑布局：让地图铺满画布（默认 matplotlib 边距过大）
+            try:
+                self.figure.subplots_adjust(left=0.05, right=0.97, top=0.95, bottom=0.05)
+            except Exception:
+                pass
+            self.status.showMessage(f"矢量场：{un} + {vn}")
         except Exception as exc:
             self.figure.clear()
             ax = self.figure.add_subplot(111)
             ax.text(0.5, 0.5, f"矢量绘图失败：{exc}", ha="center", va="center",
                     transform=ax.transAxes)
             ax.set_axis_off()
-            self.statusBar().showMessage(f"矢量绘图失败：{exc}")
+            self.status.showMessage(f"矢量绘图失败：{exc}")
 
     def _sync_time_widgets(self):
         self._reentrant = True

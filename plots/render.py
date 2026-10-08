@@ -566,23 +566,54 @@ def render_vector(data, spec: PlotSpec, fig, ax=None):
         v2 = _to_2d(v, (lat_dim, lon_dim))
         lat = u2[lat_dim].values; lon = u2[lon_dim].values
     U = np.asarray(u2.values); V = np.asarray(v2.values)
-    # 自动抽稀：大数据网格全画箭头会卡（cartopy 逐箭头坐标变换）。
-    # 目标 ≈ 每 2000 个箭头；用户手动 density 在此基础上按比例（越大越稀）。
-    density = max(1, int(getattr(spec, "vector_density", 1)))
-    ny, nx = U.shape
-    base_step = max(1, int(np.sqrt(ny * nx / 2000.0)))
-    step = max(density, base_step)
-    q = ax.quiver(lon[::step], lat[::step], U[::step, ::step], V[::step, ::step],
-                  scale=getattr(spec, "vector_scale", 1.0) * 100,
-                  color=getattr(spec, "vector_color", "black"),
-                  transform=ccrs.PlateCarree(), alpha=getattr(spec, "alpha", 1.0))
-    ax.coastlines(linewidth=0.5)
+    # ---- Panoply PanVectorControls 参数 ----
+    style = (getattr(spec, "vector_style", "ARROW") or "ARROW").upper()
+    if style == "NONE":
+        q = None
+    else:
+        # 抽稀：自动目标（≈800 箭头，清爽可读）为基础步长，再按 Spacing(25-250%) 调整
+        import math as _math
+        density = max(1, int(getattr(spec, "vector_density", 1) or 1))
+        ny, nx = U.shape
+        base_step = max(1, _math.ceil((ny * nx / 800.0) ** 0.5))
+        spacing = float(getattr(spec, "vector_spacing", 100) or 100)
+        step = max(1, int(round(base_step * spacing / 100.0)), density)
+        # 粗细：Weight(%) → quiver 箭头轴宽（默认 0.005 ≈ 100%）
+        weight = float(getattr(spec, "vector_weight", 100) or 100)
+        # 大小：Reference Value 越大箭头越短（Panoply vector.refvalue 语义）
+        refvalue = float(getattr(spec, "vector_refvalue", 10.0) or 10.0)
+        refvalue = max(refvalue, 0.1)
+        vscale = float(getattr(spec, "vector_scale", 1.0) or 1.0)
+        scale = max(1e-6, 100.0 * vscale * (10.0 / refvalue))
+        q = ax.quiver(
+            lon[::step], lat[::step], U[::step, ::step], V[::step, ::step],
+            scale=scale, width=0.005 * (weight / 100.0),
+            color=getattr(spec, "vector_color", "black"),
+            transform=ccrs.PlateCarree(), alpha=getattr(spec, "alpha", 1.0),
+            pivot="middle" if style == "UPDOT" else "tail", zorder=3,
+        )
+        if style == "UPDOT":
+            # Upstream Dot：在箭头上游（起点）加点标记
+            ax.scatter(lon[::step], lat[::step], s=2.5, marker="o",
+                       color=getattr(spec, "vector_color", "black"),
+                       transform=ccrs.PlateCarree(), zorder=4)
+    # 海岸线：加粗并置于箭头之上，避免被密箭头盖住（用户反馈"地图没了"）
+    ax.coastlines(linewidth=1.0, zorder=8)
     _set_extent(ax, spec)
     if spec.grid_on:
         _grid_lines(ax, spec)
     _minmax_note(ax, np.hypot(U, V), spec)
     _apply_titles(ax, fig, spec)
-    ax.quiverkey(q, 0.95, 1.03, 1.0, "1.0", labelpos="E")
+    # Scale Sample：显示参考箭头（Panoply vector.sample）
+    if q is not None and getattr(spec, "vector_sample", True):
+        try:
+            ax.quiverkey(q, 0.92, 1.05, refvalue, f"{refvalue:g}",
+                         labelpos="E", coordinates="axes",
+                         fontproperties={"size": 8})
+        except Exception:
+            pass
+    if spec.show_colorbar:
+        pass
     return fig
 
 

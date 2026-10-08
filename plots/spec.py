@@ -52,10 +52,15 @@ class PlotSpec:
     line_style: str = "-"           # - / -- / -. / :
     # ---- 数据归一化（C7）----
     normalize: bool = False         # 归一化到 0-100
-    # ---- 矢量场（M2 VECTORS）----
-    vector_scale: float = 1.0       # 箭头缩放
-    vector_density: int = 1         # 抽稀步长
-    vector_color: str = "black"
+    # ---- 矢量场（M2 VECTORS，对齐 Panoply PanVectorControls）----
+    vector_scale: float = 1.0        # 箭头整体缩放（length factor）
+    vector_density: int = 1          # 额外抽稀倍数（向后兼容）
+    vector_color: str = "black"      # 箭头颜色
+    vector_style: str = "ARROW"      # ARROW / NONE / UPDOT（Panoply PanVectorStyle）
+    vector_spacing: int = 100        # 箭头间隔 %（25-250，Panoply vector.spacing）
+    vector_weight: int = 100         # 箭头线粗 %（Panoply vector.weight）
+    vector_refvalue: float = 10.0    # 参考值：箭头长度的基准（Panoply vector.refvalue）
+    vector_sample: bool = True       # 显示参考箭头（Panoply vector.sample）
 
     def as_dict(self) -> dict:
         """转换为可保存到 QSettings/JSON 的字典。"""

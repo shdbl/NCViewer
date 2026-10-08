@@ -66,7 +66,9 @@ _LABEL_COLORS = {"黑": "black", "白": "white", "红": "red", "蓝": "blue",
 _CONTOUR_STYLES = {"填充": "filled", "线": "lines", "填充+线": "both"}
 _GRID_STYLES = {"实线": "solid", "虚线": "dashed", "点线": "dotted"}
 _LINE_STYLES = {"实线 -": "-", "虚线 --": "--", "点划线 -.": "-.", "点线 :": ":"}
-_VECTOR_COLORS = {"黑": "black", "蓝": "blue", "红": "red", "绿": "green"}
+_VECTOR_COLORS = {"黑": "black", "蓝": "blue", "红": "red", "绿": "green",
+                  "橙": "orange", "深灰": "dimgray", "紫": "purple"}
+_VECTOR_STYLES = {"箭头": "ARROW", "上游点": "UPDOT", "不画": "NONE"}
 
 
 class _CollapsibleGroup(QWidget):
@@ -435,6 +437,24 @@ class PlotControlsPanel(QWidget):
 
         # ---- 矢量 VECTORS（默认折叠，仅矢量场）----
         self.vector_group, vec_form = _make_collapsible("矢量", collapsed=True)
+        self.vector_style_combo = _NoWheelCombo()
+        self.vector_style_combo.addItems(list(_VECTOR_STYLES.keys()))
+        self.vector_style_combo.setToolTip("箭头样式（对齐 Panoply）")
+        self.vector_spacing_spin = _NoWheelSpin()
+        self.vector_spacing_spin.setRange(25, 250)
+        self.vector_spacing_spin.setSuffix(" %")
+        self.vector_spacing_spin.setValue(100)
+        self.vector_spacing_spin.setToolTip("箭头间隔（100%=自动；越大越疏，Panoply Spacing）")
+        self.vector_weight_spin = _NoWheelSpin()
+        self.vector_weight_spin.setRange(25, 400)
+        self.vector_weight_spin.setSuffix(" %")
+        self.vector_weight_spin.setValue(100)
+        self.vector_weight_spin.setToolTip("箭头线粗（100%=默认，Panoply Weight）")
+        self.vector_refvalue_spin = _NoWheelDoubleSpin()
+        self.vector_refvalue_spin.setRange(0.1, 10000.0)
+        self.vector_refvalue_spin.setDecimals(2)
+        self.vector_refvalue_spin.setValue(10.0)
+        self.vector_refvalue_spin.setToolTip("参考值：箭头长度的基准（Panoply Reference Value）")
         self.vector_scale_spin = _NoWheelDoubleSpin()
         self.vector_scale_spin.setRange(0.1, 10.0)
         self.vector_scale_spin.setDecimals(1)
@@ -444,9 +464,17 @@ class PlotControlsPanel(QWidget):
         self.vector_density_spin.setValue(1)
         self.vector_color_combo = _NoWheelCombo()
         self.vector_color_combo.addItems(list(_VECTOR_COLORS.keys()))
+        self.vector_sample_check = QCheckBox("显示参考箭头")
+        self.vector_sample_check.setChecked(True)
+        self.vector_sample_check.setToolTip("在图例位置显示参考值对应的箭头长度")
+        vec_form.addRow("样式", self.vector_style_combo)
+        vec_form.addRow("间隔", self.vector_spacing_spin)
+        vec_form.addRow("线粗", self.vector_weight_spin)
+        vec_form.addRow("参考值", self.vector_refvalue_spin)
         vec_form.addRow("箭头缩放", self.vector_scale_spin)
         vec_form.addRow("抽稀步长", self.vector_density_spin)
         vec_form.addRow("箭头颜色", self.vector_color_combo)
+        vec_form.addRow("", self.vector_sample_check)
         lay.addWidget(self.vector_group)
 
         # ---- 重置 ----
@@ -563,9 +591,14 @@ class PlotControlsPanel(QWidget):
         self.show_colorbar_check.toggled.connect(self._on_show_colorbar)
         self.normalize_check.toggled.connect(self._on_normalize)
         self.line_style_combo.currentTextChanged.connect(self._on_line_style)
+        self.vector_style_combo.currentTextChanged.connect(self._on_vector_style)
+        self.vector_spacing_spin.valueChanged.connect(self._on_vector_spacing)
+        self.vector_weight_spin.valueChanged.connect(self._on_vector_weight)
+        self.vector_refvalue_spin.valueChanged.connect(self._on_vector_refvalue)
         self.vector_scale_spin.valueChanged.connect(self._on_vector_scale)
         self.vector_density_spin.valueChanged.connect(self._on_vector_density)
         self.vector_color_combo.currentTextChanged.connect(self._on_vector_color)
+        self.vector_sample_check.toggled.connect(self._on_vector_sample)
         self.reset_button.clicked.connect(self._reset_spec)
 
     # ---- 写回 spec ----
@@ -801,6 +834,31 @@ class PlotControlsPanel(QWidget):
             self.spec.vector_scale = float(v)
             self._refresh()
 
+    def _on_vector_style(self, text):
+        if not self._updating:
+            self.spec.vector_style = _VECTOR_STYLES.get(text, "ARROW")
+            self._refresh()
+
+    def _on_vector_spacing(self, v):
+        if not self._updating:
+            self.spec.vector_spacing = int(v)
+            self._refresh()
+
+    def _on_vector_weight(self, v):
+        if not self._updating:
+            self.spec.vector_weight = int(v)
+            self._refresh()
+
+    def _on_vector_refvalue(self, v):
+        if not self._updating:
+            self.spec.vector_refvalue = float(v)
+            self._refresh()
+
+    def _on_vector_sample(self, checked):
+        if not self._updating:
+            self.spec.vector_sample = bool(checked)
+            self._refresh()
+
     def _on_vector_density(self, v):
         if not self._updating:
             self.spec.vector_density = int(v)
@@ -890,10 +948,16 @@ class PlotControlsPanel(QWidget):
             self.normalize_check.setChecked(bool(getattr(s, "normalize", False)))
             self.line_style_combo.setCurrentText(
                 next((k for k, v in _LINE_STYLES.items() if v == getattr(s, "line_style", "-")), "实线 -"))
+            self.vector_style_combo.setCurrentText(
+                next((k for k, v in _VECTOR_STYLES.items() if v == getattr(s, "vector_style", "ARROW")), "箭头"))
+            self.vector_spacing_spin.setValue(getattr(s, "vector_spacing", 100))
+            self.vector_weight_spin.setValue(getattr(s, "vector_weight", 100))
+            self.vector_refvalue_spin.setValue(getattr(s, "vector_refvalue", 10.0))
             self.vector_scale_spin.setValue(getattr(s, "vector_scale", 1.0))
             self.vector_density_spin.setValue(getattr(s, "vector_density", 1))
             self.vector_color_combo.setCurrentText(
                 next((k for k, v in _VECTOR_COLORS.items() if v == getattr(s, "vector_color", "black")), "黑"))
+            self.vector_sample_check.setChecked(bool(getattr(s, "vector_sample", True)))
         finally:
             self._updating = False
 
