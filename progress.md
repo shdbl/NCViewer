@@ -181,3 +181,4 @@
 - ui\plot_window.py：_apply_plot_type 读 get_grid_mapping→spec._grid_mapping + has_gm→map；_auto_polar_projection(da, gm) 支持投影网格（lat_0≥60→北极，≤-60→南极）
 - 验证：NSIDC u → map + LambertAzimuthalEqualArea CRS + NorthPolarStereo 自动；渲染北极极射投影同心纬度环 40-80N + 海岸线 + 色标 -0.08~0.08 正确
 - tests\test_projected_grid.py 新增（解析/CRS自定义球体/x-y网格/自动极地/常规不受影响 6 项），11 测试全绿
+[10:56] S7.8 打包发布：PyInstaller onedir 重建（合并绘图改造后），NCViewer.exe 13.5MB + NCViewer-windows-x64.zip 134.1MB，启动冒烟测试通过（run 8s 无退出）。待 push GitHub + 建 Release v1.0.0 上传 zip。
